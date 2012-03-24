@@ -105,7 +105,7 @@ This will show you missing files in the TYPO3 system and only report back if err
                             continue;
                         }
                     }
-                    $out = fopen($filePath, 'w');
+                    $out = fopen($filePath, 'wb');
                     if (!$out) {
                         $this->cli_echo(' - [ERROR]: Could not open '.$filePath.' for writing');
                         continue;
