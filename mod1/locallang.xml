@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<T3locallang>
+	<meta type="array">
+		<type>module</type>
+		<description>Language labels for module &quot;tools_txt3buildM1&quot;</description>
+	</meta>
+	<data type="array">
+		<languageKey index="default" type="array">
+			<label index="mlang_tabs_tab">Build</label>
+			<label index="mlang_labels_tabdescr">Several tools to observe and control the build process</label>
+			
+			<label index="status">Status</label>
+			<label index="cmdNotAvailable">Command not available</label>
+			<label index="cmdAvailableButError">Command available but call results in error</label>
+			<label index="mysqlCli">MySQL Command Line Tools</label>
+			<label index="general">General</label>
+			<label index="beUser">Backend user</label>
+			<label index="exists">exists</label>
+			<label index="notExists">doesn't exist</label>
+			<label index="isAdmin">is ADMIN which is not allowed</label>
+			<label index="createBeUser">Create user</label>
+			<label index="createBeUser.success">Backend user created</label>
+			<label index="changeBeUser">Change user</label>
+			<label index="changeBeUser.success">Backend user changed</label>
+		</languageKey>
+		<languageKey index="de" type="array">
+			<label index="mlang_tabs_tab">Build</label>
+			<label index="mlang_labels_tabdescr">Einige Werkzeuge, um den Build-Prozess zu überwachen und beeinflussen.</label>
+		</languageKey>
+	</data>
+</T3locallang>

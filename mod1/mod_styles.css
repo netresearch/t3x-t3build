@@ -1,0 +1,61 @@
+
+body{
+	margin: 0px;
+}
+
+#typo3-inner-docbody p.help {
+	font-size: 12px;
+	margin-bottom: 10px;
+}
+
+
+/* ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- */
+/* status report */
+
+h2.section-header {
+	margin: 15px 0;
+	padding: 2px 0 0 20px;
+	cursor: pointer;
+	height: 20px;
+	clear: left;
+}
+h2.collapsed {
+	background-image:url(../../../../typo3/gfx/arrowright.png);
+	background-repeat:no-repeat;
+}
+h2.expanded {
+	background-image:url(../../../../typo3/gfx/arrowdown.png);
+	background-repeat:no-repeat;
+}
+h2.section-header img {
+	margin-right:2px;
+	vertical-align:bottom;
+}
+
+.message-body {
+	clear: left;
+}
+
+.message-body p {
+	padding: 5px 0;
+}
+
+.message-body ul {
+	padding-top: 5px;
+	list-style: disc;
+}
+
+.message-body ol {
+	padding-top: 5px;
+	list-style: decimal;
+}
+
+.message-left {
+	float: left;
+	width: 150px;
+}
+
+.message-right {
+	float: left;
+}
+
