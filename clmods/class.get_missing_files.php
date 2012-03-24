@@ -88,6 +88,10 @@ This will show you missing files in the TYPO3 system and only report back if err
 	        foreach (array('managedFilesMissing', 'softrefFilesMissing') as $key) {
         	    foreach ($resultArray[$key] as $file => $dbStuff) {
     	            $filePath = t3lib_div::getFileAbsFileName($file);
+    	            $dir = dirname($filePath);
+    	            if (!file_exists($dir)) {
+    	                t3lib_div::mkdir_deep(PATH_site, substr($dir, strlen(PATH_site)));
+    	            }
     	            $fileUrl = $url.$file;
                     $ch = curl_init();
                     curl_setopt($ch, CURLOPT_HEADER, 0);

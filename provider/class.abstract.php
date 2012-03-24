@@ -249,7 +249,7 @@ abstract class tx_t3build_provider_abstract {
                 $args[$i] = count($arg) ? implode(', ', $arg).' '.$and.' '.$last : $last;
             }
         }
-        echo vsprintf($msg, $args)."\n";
+        echo vsprintf((string) $msg, $args)."\n";
     }
 
     protected function _die($msg)
