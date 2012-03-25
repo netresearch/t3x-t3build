@@ -30,7 +30,7 @@ t3lib_div::requireOnce(PATH_t3lib . 'class.t3lib_install.php');
 class tx_t3build_provider_export extends tx_t3build_provider_abstract
 {
     /**
-     * The file to which to export
+     * The file to which to export (currently only relative to PATH_site)
      * @arg
      * @var string
      */
@@ -175,7 +175,7 @@ class tx_t3build_provider_export extends tx_t3build_provider_abstract
 	 */
 	protected function setup()
 	{
-	    $tempDir =  t3lib_div::getFileAbsFileName($this->tempDir);
+	    $tempDir = t3lib_div::getFileAbsFileName($this->tempDir);
 	    $this->_debug('tempDir is '.$tempDir);
 	    if (file_exists($tempDir)) {
 	        $this->_debug('Cleaning tempDir');

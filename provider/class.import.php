@@ -118,7 +118,7 @@ class tx_t3build_provider_import extends tx_t3build_provider_abstract
         }
         $file = t3lib_div::getFileAbsFileName($this->file);
         if (!$file) {
-            $file = realpath($file);
+            $file = $this->file;
         }
         $this->tar = new Archive_Tar($file);
 
@@ -192,7 +192,7 @@ class tx_t3build_provider_import extends tx_t3build_provider_abstract
 	    foreach ($this->info->files->file as $fileChild) {
 	        $files[] = (string) $fileChild;
 	    }
-	    if (count($files)) {
+	    if (!count($files)) {
 	        $this->_echo('No files found');
 	    }
 	    $this->_debug('Importing files', $files);

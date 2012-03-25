@@ -256,7 +256,7 @@ abstract class tx_t3build_provider_abstract {
     {
         $args = func_get_args();
         call_user_func_array(array($this, '_echo'), $args);
-        die();
+        exit(1);
     }
 
     protected function _debug($msg)
