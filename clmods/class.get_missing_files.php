@@ -73,10 +73,8 @@ This will show you missing files in the TYPO3 system and only report back if err
 	function main_autoFix($resultArray)	{
 	    $url = implode(',', (array) $this->cli_args['--url']);
 	    $urls = $url ? explode(',', $url) : array();
-	    if (!count($urls)) {
-	        $this->cli_echo('[ERROR]: No urls provided!', true);
-	        exit;
-	    }
+	    $urlCount = count($urls);
+
 	    foreach ($urls as $url) {
 	        if (!preg_match('#^([a-z]+)://#i', $url, $match)) {
 	            $scheme = 'http';
@@ -87,6 +85,10 @@ This will show you missing files in the TYPO3 system and only report back if err
 	        $url = rtrim($url, '/').'/';
 	        foreach (array('managedFilesMissing', 'softrefFilesMissing') as $key) {
         	    foreach ($resultArray[$key] as $file => $dbStuff) {
+        	        if (!$urlCount) {
+            	        $this->cli_echo('[ERROR]: No urls provided!', true);
+            	        exit;
+            	    }
     	            $filePath = t3lib_div::getFileAbsFileName($file);
     	            $dir = dirname($filePath);
     	            if (!file_exists($dir)) {
