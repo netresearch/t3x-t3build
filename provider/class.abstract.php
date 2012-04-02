@@ -100,12 +100,11 @@ abstract class tx_t3build_provider_abstract {
                                 break 2;
                             }
                         }
-                    }
-                    if ($parts[1] == '-') {
-                        $realArgs = str_split($parts[2]);
-                        $argsCount = count($realArgs);
-                        $n = 0;
-                        continue;
+                        if ($parts[1] == '-') {
+                            $realArgs = str_split('0'.$parts[2]);
+                            $argsCount = count($realArgs);
+                            continue;
+                        }
                     }
                     $this->_die('Unknown modifier "%s"', $modifier);
                 }
