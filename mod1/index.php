@@ -70,6 +70,7 @@ class tx_t3build_module extends t3lib_SCbase {
 		$this->MOD_MENU = array(
 			'function' => array(
 			    'status' => $GLOBALS['LANG']->getLL('status'),
+			    'export' => $GLOBALS['LANG']->getLL('export'),
 			)
 		);
 
@@ -142,6 +143,126 @@ class tx_t3build_module extends t3lib_SCbase {
 	 */
 	public function printContent() {
 		echo $this->content;
+	}
+
+	public function flush($string)
+	{
+	    static $i = 0;
+	    $i++;
+	    $string .= '<a name="jump-'.$i.'"></a><script type="text/javascript">window.location.hash = "jump-'.$i.'";</script>';
+	    return str_pad(nl2br($string), intval(ini_get('output_buffering')))."\n";
+	}
+
+	protected function exportAction() {
+	    $post = (array) t3lib_div::_POST();
+	    t3lib_div::requireOnce(t3lib_extMgm::extPath('t3build').'provider/class.export.php');
+	    /* @var $provider tx_t3build_provider_export */
+	    $provider = t3lib_div::makeInstance('tx_t3build_provider_export');
+
+	    $provider->init(array());
+
+	    if ($post['args']) {
+	        // Set unchecked booleans to false:
+    	    foreach ($provider->getOptionInfos() as $info) {
+    	        if (substr($info['type'], 0, 4) == 'bool' && !isset($post['args']['--'.$info['switch']])) {
+    	            $post['args']['--'.$info['switch']] = array('false');
+    	        }
+    	    }
+	    }
+
+	    if ($post['download'] || $post['save']) {
+	        // prepare console output in iframe:
+	        t3lib_div::cleanOutputBuffers();
+	        ob_implicit_flush(true);
+	        ob_start(array($this, 'flush'), 2);
+
+	        // Rewrite the target file to some temp file to redirect to after export
+    	    if ($post['download']) {
+    	        $downloadFile = 'typo3temp/t3build.tar.gz';
+    	        $post['args']['--file'] = array($downloadFile);
+    	    }
+
+	        echo '<body style="color:#fff; background:#000; font:normal 11px Lucida Console, Courier New, serif; white-space:nowrap;">';
+
+	        // Initialize again with the post args and run it
+	        $provider->init($post['args']);
+	        $provider->run();
+
+	        if (isset($downloadFile)) {
+	            echo '<script type="text/javascript"> window.onload = function() { window.location = "../'.$downloadFile.'"; }</script>';
+	        }
+	        echo '</body>';
+	        die();
+	    }
+
+
+	    $form .= '
+	    <div class="t3buildButtons">
+    	    <input type="submit" name="download" value="Download"/>&nbsp;
+    	    <input type="submit" name="save" value="Export"/>';
+	    if (file_exists($filename))
+    	$form .= '<div class="divider" style="margin-bottom:10px;"></div>
+	    </div>
+	    <div class="t3buildFormContainer">';
+	    $i = 0;
+	    foreach ($provider->getOptionInfos() as $info) {
+	        if ($info['type'] == 'mask') {
+	            // Not supported
+	            continue;
+	        }
+	        $i++;
+	        if ($i > 1 && $i % 2) {
+	            $form .= '<div class="t3buildFormElementRowDivider"></div>';
+	        }
+	        $value = $info['value'];
+	        $name = 'args[--'.$info['switch'].']';
+            $title = ucfirst(trim(preg_replace('/([A-Z])/', ' $1', $info['property']), ' _'));
+            preg_match_all('/^\s+\* ([^@\/].*)$/m', $info['comment'], $lines);
+            $description = nl2br(trim(implode("\n", $lines[1])));
+
+            $form .= '<dl class="t3buildFormElement">';
+            $form .= '<dt>'.$title.'</dt>';
+            $form .= '<dd>'.$description.'</dd>';
+
+            switch ($info['type']) {
+                case 'boolean':
+                case 'bool':
+                    $form .= '<dd>
+                    <input type="checkbox" name="'.$name.'[1]" value="true"';
+                    if ($value) {
+                        $form .= ' checked="checked"';
+                    }
+                    $form .= '/></dd>';
+                    break;
+                case 'array':
+                    foreach ($value as $subValue) {
+                        $form .= '<dd><input type="text" name="'.$name.'[]" value="'.$subValue.'"/></dd>';
+                    }
+                    break;
+                case 'string':
+                case 'int':
+                case 'integer':
+                case 'float':
+                default:
+                    $form .= '<dd><input type="text" name="'.$name.'[]" value="'.$value.'"/></dd>';
+            }
+            $form .= '</dl>';
+	    }
+
+	    $form .= '<script type="text/javascript">'."
+    		$$('form')[0]
+    		.writeAttribute('target', 'consoleOutput')
+    		.observe('submit', function(e) {
+    			window.location.hash = 'console_output';
+    			$('consoleOutputContainer').show();
+    		});
+	    </script>".'
+	    <a name="console_output"/>
+    	<div id="consoleOutputContainer" style="display:none;">
+    		<iframe id="consoleOutput" name="consoleOutput" frameborder="no" src="../'.t3lib_extMgm::siteRelPath('t3build').'mod1/empty.html" width="100%" height="100%"></iframe>
+        </div>';
+
+        return $form;
 	}
 
 	/**

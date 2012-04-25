@@ -59,3 +59,37 @@ h2.section-header img {
 	float: left;
 }
 
+/* Export:
+---------------------------------------------------------------------------------------*/
+.t3buildFormContainer {
+width:100%;
+overflow:hidden;
+}
+.t3buildFormElement {
+width:400px;
+float:left;
+margin-right:20px;
+}
+.t3buildFormElementRowDivider {
+clear:left;
+height:10px;
+width:100%;
+}
+.t3buildFormContainer dt {
+font-weight:bold;
+}
+.t3buildFormContainer dd {
+margin-bottom:5px;
+margin-right:6px;
+}
+.t3buildFormContainer dd input[type=text] {
+width:100%;
+border:1px solid #999;
+padding:1px;
+}
+#consoleOutputContainer {
+clear:both;
+padding-top:10px;
+width:820px;
+height:300px;
+}

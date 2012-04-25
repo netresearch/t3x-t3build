@@ -22,6 +22,8 @@
 			<label index="createBeUser.success">Backend user created</label>
 			<label index="changeBeUser">Change user</label>
 			<label index="changeBeUser.success">Backend user changed</label>
+			
+			<label index="export">Export</label>
 		</languageKey>
 		<languageKey index="de" type="array">
 			<label index="mlang_tabs_tab">Build</label>

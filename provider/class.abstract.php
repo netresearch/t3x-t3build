@@ -149,6 +149,20 @@ abstract class tx_t3build_provider_abstract {
         }
 	}
 
+    public function getOptionInfos()
+    {
+        $infos = array();
+        foreach ($this->_infos as $i => $info) {
+            if ($info['setter'] && method_exists($this, $method = 'g'.substr($info['setter'], 1))) {
+                $info['value'] = $this->{$method}();
+            } else {
+                $info['value'] = $this->{$info['property']};
+            }
+            $infos[$i] = $info;
+        }
+        return $infos;
+    }
+
 	public function helpAction()
 	{
         preg_match_all('/^\s+\* ([^@\/].*)$/m', $this->_class->getDocComment(), $lines);

@@ -8,7 +8,8 @@
 *  This copyright notice MUST APPEAR in all copies of the script!
 ***************************************************************/
 
-t3lib_div::requireOnce(PATH_t3lib . 'class.t3lib_install.php');
+require_once PATH_t3lib . 'class.t3lib_install.php';
+require_once t3lib_extMgm::extPath('t3build').'provider/class.abstract.php';
 
 /**
  * Command that exports the database and all files in the configured
@@ -259,17 +260,25 @@ class tx_t3build_provider_export extends tx_t3build_provider_abstract
 	    $infoFile = $this->tempInfoDir.DIRECTORY_SEPARATOR.'info.xml';
 	    $this->info->asXML($infoFile);
 	    $this->addToTar($infoFile);
+	    $this->tar->_close();
 
 	    $target = t3lib_div::getFileAbsFileName($this->file);
 	    if (file_exists($target)) {
+	        $this->_debug('Backing up existing archive: '.$target);
 	        rename($target, $target.'.bak');
 	    }
-	    rename($this->tempTarFile, $target);
+	    $this->_debug('Moving archive from '.$this->tempTarFile.' to '.$target);
+	    if (!rename($this->tempTarFile, $target)) {
+	        $this->_echo('WARNING: Could not move archive');
+	    }
 	    if (file_exists($target.'.bak')) {
 	        @unlink($target.'.bak');
 	    }
 
-	    t3lib_div::rmdir($this->tempDir, true);
+	    $this->_debug('Removing temp dir '.$this->tempDir);
+	    if (!t3lib_div::rmdir($this->tempDir, true)) {
+	        $this->_echo('WARNING: Could not remove temp dir');
+	    }
 	}
 
 	/**
