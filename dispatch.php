@@ -61,7 +61,7 @@ class tx_t3build_dispatch extends t3lib_cli {
 		} else {
 		    $this->cli_echo('No command provided - please specify one of the following commands:'.PHP_EOL, true);
             $directory = new DirectoryIterator($classPath);
-            $pattern = '/^class\.'.sprintf(self::Mask_ClassName, '([a-zA-Z0-9]+)').'\.php$/';
+            $pattern = '/^class\.([a-zA-Z0-9]+)\.php$/';
             foreach ($directory as $file) {
                 /* @var $file SplFileInfo */
                 if ($file->isFile() && preg_match($pattern, $file->getFilename(), $match) && $match[1] != 'abstract') {
