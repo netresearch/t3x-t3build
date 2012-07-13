@@ -35,7 +35,8 @@
  * @author    Vincent Blavet <vincent@phpconcept.net>
  * @copyright 1997-2010 The Authors
  * @license   http://www.opensource.org/licenses/bsd-license.php New BSD License
- * @version   CVS: $Id$
+ * @version   CVS: Id: Tar.php 324840 2012-04-05 08:44:41Z mrook
+ * @version   $$
  * @link      http://pear.php.net/package/Archive_Tar
  */
 
@@ -92,7 +93,7 @@ class Archive_Tar extends PEAR
     /**
      * @var object PEAR_Error object
      */
-    var $error_object=null; 
+    var $error_object=null;
 
     // {{{ constructor
     /**
@@ -649,14 +650,14 @@ class Archive_Tar extends PEAR
     // {{{ _error()
     function _error($p_message)
     {
-        $this->error_object = &$this->raiseError($p_message); 
+        $this->error_object = &$this->raiseError($p_message);
     }
     // }}}
 
     // {{{ _warning()
     function _warning($p_message)
     {
-        $this->error_object = &$this->raiseError($p_message); 
+        $this->error_object = &$this->raiseError($p_message);
     }
     // }}}
 
@@ -1110,12 +1111,12 @@ class Archive_Tar extends PEAR
         $v_magic = 'ustar ';
 
         $v_version = ' ';
-        
+
         if (function_exists('posix_getpwuid'))
         {
           $userinfo = posix_getpwuid($v_info[4]);
           $groupinfo = posix_getgrgid($v_info[5]);
-          
+
           $v_uname = $userinfo['name'];
           $v_gname = $groupinfo['name'];
         }
@@ -1199,7 +1200,7 @@ class Archive_Tar extends PEAR
         {
           $userinfo = posix_getpwuid($p_uid);
           $groupinfo = posix_getgrgid($p_gid);
-          
+
           $v_uname = $userinfo['name'];
           $v_gname = $groupinfo['name'];
         }
@@ -1208,7 +1209,7 @@ class Archive_Tar extends PEAR
           $v_uname = '';
           $v_gname = '';
         }
-        
+
         $v_devmajor = '';
 
         $v_devminor = '';
@@ -1347,7 +1348,7 @@ class Archive_Tar extends PEAR
                          "a8checksum/a1typeflag/a100link/a6magic/a2version/" .
                          "a32uname/a32gname/a8devmajor/a8devminor/a131prefix",
                          $v_binary_data);
-                         
+
         if (strlen($v_data["prefix"]) > 0) {
             $v_data["filename"] = "$v_data[prefix]/$v_data[filename]";
         }
@@ -1673,7 +1674,7 @@ class Archive_Tar extends PEAR
             }
 
             @fclose($v_dest_file);
-            
+
             if ($p_preserve) {
                 @chown($v_header['filename'], $v_header['uid']);
                 @chgrp($v_header['filename'], $v_header['gid']);
@@ -1695,7 +1696,7 @@ class Archive_Tar extends PEAR
                             .'does not exist. Archive may be corrupted.');
               return false;
           }
-          
+
           $filesize = filesize($v_header['filename']);
           if ($filesize != $v_header['size']) {
               $this->_error('Extracted file '.$v_header['filename']
@@ -1773,12 +1774,20 @@ class Archive_Tar extends PEAR
             }
 
             if ($this->_compress_type == 'gz') {
+                $end_blocks = 0;
+
                 while (!@gzeof($v_temp_tar)) {
                     $v_buffer = @gzread($v_temp_tar, 512);
                     if ($v_buffer == ARCHIVE_TAR_END_BLOCK || strlen($v_buffer) == 0) {
+                        $end_blocks++;
                         // do not copy end blocks, we will re-make them
                         // after appending
                         continue;
+                    } elseif ($end_blocks > 0) {
+                        for ($i = 0; $i < $end_blocks; $i++) {
+                            $this->_writeBlock(ARCHIVE_TAR_END_BLOCK);
+                        }
+                        $end_blocks = 0;
                     }
                     $v_binary_data = pack("a512", $v_buffer);
                     $this->_writeBlock($v_binary_data);
@@ -1787,9 +1796,19 @@ class Archive_Tar extends PEAR
                 @gzclose($v_temp_tar);
             }
             elseif ($this->_compress_type == 'bz2') {
+                $end_blocks = 0;
+
                 while (strlen($v_buffer = @bzread($v_temp_tar, 512)) > 0) {
-                    if ($v_buffer == ARCHIVE_TAR_END_BLOCK) {
+                    if ($v_buffer == ARCHIVE_TAR_END_BLOCK || strlen($v_buffer) == 0) {
+                        $end_blocks++;
+                        // do not copy end blocks, we will re-make them
+                        // after appending
                         continue;
+                    } elseif ($end_blocks > 0) {
+                        for ($i = 0; $i < $end_blocks; $i++) {
+                            $this->_writeBlock(ARCHIVE_TAR_END_BLOCK);
+                        }
+                        $end_blocks = 0;
                     }
                     $v_binary_data = pack("a512", $v_buffer);
                     $this->_writeBlock($v_binary_data);
@@ -1920,11 +1939,11 @@ class Archive_Tar extends PEAR
                 }
             }
         }
-        
+
         if (defined('OS_WINDOWS') && OS_WINDOWS) {
             $v_result = strtr($v_result, '\\', '/');
         }
-        
+
         return $v_result;
     }
 

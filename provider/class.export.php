@@ -189,11 +189,8 @@ class tx_t3build_provider_export extends tx_t3build_provider_abstract
         $this->tempTarFile = $this->tempDir.DIRECTORY_SEPARATOR.basename($this->file);
         t3lib_div::mkdir($this->tempInfoDir = $this->tempDir.DIRECTORY_SEPARATOR.'.t3build');
 
-        @include_once 'Archive/Tar.php';
-        if (!class_exists('Archive_Tar') || Archive_Tar instanceof PEAR) {
-            set_include_path(t3lib_extMgm::extPath('t3build').'/contrib/PEAR'.PATH_SEPARATOR.get_include_path());
-            require_once 'Archive/Tar.php';
-        }
+        set_include_path(t3lib_extMgm::extPath('t3build').'/contrib/PEAR'.PATH_SEPARATOR.get_include_path());
+        require_once 'Archive/Tar.php';
         $this->tar = new Archive_Tar($this->tempTarFile, 'gz');
 
         $this->info = new SimpleXMLElement('<t3build version="1.0"></t3build>');
@@ -321,8 +318,19 @@ class tx_t3build_provider_export extends tx_t3build_provider_abstract
             $args[] = '-v';
         }
         $args[] = $db;
-        if ($this->ignoreTables) {
-            $ignoreTables = explode(',', $this->ignoreTables);
+
+        $ignoreTables = explode(',', $this->ignoreTables);
+        foreach ((array) $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['t3build']['export']['ignoreTables'] as $extIgnoreTables) {
+            if (!is_array($extIgnoreTables)) {
+                $extIgnoreTables = explode(',', $extIgnoreTables);
+            }
+            foreach ($extIgnoreTables as $extIgnoreTable) {
+                if (!in_array($extIgnoreTable, $ignoreTables)) {
+                    $ignoreTables[] = $extIgnoreTable;
+                }
+            }
+        }
+        if (count($ignoreTables)) {
             $availableTables = array_keys($TYPO3_DB->admin_get_tables());
             foreach ($ignoreTables as $ignoreTable) {
                 $pattern = strpos($ignoreTable, '*') !== false ? '/^'.str_replace('*', '.*', $ignoreTable).'$/' : null;
