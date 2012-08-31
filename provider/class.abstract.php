@@ -124,6 +124,8 @@ abstract class tx_t3build_provider_abstract {
                     case 'float':
                         $value = (float) $value[0];
                         break;
+                    case 'array':
+                        break;
                     default:
                         $value = $value[0];
                 }
@@ -204,6 +206,8 @@ abstract class tx_t3build_provider_abstract {
                     $default = 'true';
                 } elseif ($default === false) {
                     $default = 'false';
+                } elseif ($info['type'] == 'array') {
+                    $default = implode(', ', (array) $default);
                 }
                 $info['desc'][] .= '(defaults to "'.$default.'")';
             }
