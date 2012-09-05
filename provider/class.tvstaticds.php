@@ -96,6 +96,12 @@ class tx_t3build_provider_tvstaticds extends tx_t3build_provider_abstract
 
     protected $staticDirs = array();
 
+    protected $updateColumns = array(
+        'tx_templavoila_tmplobj' => 'datastructure',
+        'pages' => array('tx_templavoila_ds', 'tx_templavoila_next_ds'),
+        'tt_content' => 'tx_templavoila_ds'
+    );
+
     public function tvstaticdsAction()
     {
         if (!t3lib_extMgm::isLoaded('templavoila')) {
@@ -134,11 +140,19 @@ class tx_t3build_provider_tvstaticds extends tx_t3build_provider_abstract
                 file_put_contents($path, $row['dataprot']);
             }
             if ($this->update) {
-                $this->db->exec_UPDATEquery(
-                	'tx_templavoila_tmplobj',
-                	'datastructure='.$row['uid'],
-                    array('datastructure' => $extRelPath.$file)
-                );
+                foreach ($this->updateColumns as $table => $columns) {
+                    foreach ((array) $columns as $column) {
+                        $this->_debug('Updating column '.$column.' on table '.$table);
+                        $res = $this->db->exec_UPDATEquery(
+                        	$table,
+                        	$column.'='.$row['uid'],
+                            array($column => $extRelPath.$file)
+                        );
+                        if (!$res) {
+                            $this->_die('Could not update '.$table.'.'.$column.' for ds '.$row['uid']);
+                        }
+                    }
+                }
             }
             if ($this->delete) {
                 $this->db->exec_UPDATEquery(
