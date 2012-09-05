@@ -290,4 +290,90 @@ abstract class tx_t3build_provider_abstract {
             echo PHP_EOL;
         }
     }
+
+    /**
+     * Write config to extConf
+     * @param string $extKey
+     * @param array $update
+     */
+    protected function writeExtConf($extKey, array $update)
+    {
+        global $TYPO3_CONF_VARS;
+
+        $absPath = t3lib_extMgm::extPath($extKey);
+        $relPath = t3lib_extMgm::extRelPath($extKey);
+
+        /* @var $tsStyleConfig t3lib_tsStyleConfig */
+    	$tsStyleConfig = t3lib_div::makeInstance('t3lib_tsStyleConfig');
+		$theConstants = $tsStyleConfig->ext_initTSstyleConfig(
+			t3lib_div::getUrl($absPath . 'ext_conf_template.txt'),
+			$absPath,
+			$relPath,
+			''
+		);
+
+		$arr = @unserialize($TYPO3_CONF_VARS['EXT']['extConf'][$extKey]);
+		$arr = is_array($arr) ? $arr : array();
+
+			// Call processing function for constants config and data before write and form rendering:
+		if (is_array($TYPO3_CONF_VARS['SC_OPTIONS']['typo3/mod/tools/em/index.php']['tsStyleConfigForm'])) {
+			$_params = array('fields' => &$theConstants, 'data' => &$arr, 'extKey' => $extKey);
+			foreach ($TYPO3_CONF_VARS['SC_OPTIONS']['typo3/mod/tools/em/index.php']['tsStyleConfigForm'] as $_funcRef) {
+				t3lib_div::callUserFunction($_funcRef, $_params, $this);
+			}
+			unset($_params);
+		}
+
+
+        $arr = t3lib_div::array_merge_recursive_overrule($arr, $update);
+
+		/* @var $instObj t3lib_install */
+		$instObj = t3lib_div::makeInstance('t3lib_install');
+		$instObj->allowUpdateLocalConf = 1;
+		$instObj->updateIdentity = 'TYPO3 Extension Manager';
+
+		// Get lines from localconf file
+		$lines = $instObj->writeToLocalconf_control();
+		$instObj->setValueInLocalconfFile($lines, '$TYPO3_CONF_VARS[\'EXT\'][\'extConf\'][\'' . $extKey . '\']', serialize($arr)); // This will be saved only if there are no linebreaks in it !
+		$instObj->writeToLocalconf_control($lines);
+
+		t3lib_extMgm::removeCacheFiles();
+    }
+
+    /**
+     * Parses $vars into a path mask and makes it FS-safe
+     *
+     * @param string $mask
+     * @param array $vars
+     * @param string $renameMode
+     * @return string
+     */
+    protected function getPath($mask, $vars, $renameMode = 'camelCase')
+    {
+        $replace = array();
+        foreach ($vars as $key => $value) {
+            $replace[] = '${'.$key.'}';
+        }
+        $path = str_replace($replace, $vars, $mask);
+        if (preg_match('/\$\{([^\}]*)\}/', $path, $res)) {
+            $this->_die('Unknown var "'.$res[1].'" in path mask');
+        }
+        $path = strtolower($path);
+        $path = str_replace(':', '-', $path);
+        $path = preg_replace('#[^A-Za-z0-9/\-_\.]+#', ' ', $path);
+        $path = preg_replace('#\s*/+\s*#', '/', $path);
+        $parts = explode(' ', $path);
+        if ($renameMode == 'underscore') {
+            $path = implode('_', $parts);
+        } else {
+            $path = '';
+            $uc = false;
+            foreach ($parts as $part) {
+                $ucPart = ucfirst($part);
+                $path .= ($uc || $renameMode === 'CamelCase') ? $ucPart : $part;
+                $uc = $ucPart != $part;
+            }
+        }
+        return $path;
+    }
 }

@@ -1,4 +1,11 @@
 <?php
+/**
+ * Provider to move typoscript setup and config from records to
+ * files which can be named flexibly
+ *
+ * @package t3build
+ * @author Christian Opitz <co@netzelf.de>
+ */
 class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
 {
     /**
@@ -193,7 +200,9 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
         $content = file_exists($file) ? file_get_contents($file) : "<?php\n?>";
         $i = 0;
         foreach ($this->staticDirs as $uid => $dir) {
-            $pattern = "/t3lib_extMgm\:\:addStaticFile\s*\(\s*[\"']$this->extKey[\"']\s*,\s*[\"']".preg_quote($dir, '/').'["\'][^\)]+\)\s*;\s*/';
+            $pattern = "#t3lib_extMgm\:\:addStaticFile\s*\(\s*[\"']$this->extKey[\"']\s*,\s*[\"']";
+            $pattern .= preg_quote($dir, '#');
+            $pattern .= '["\'][^\)]+\)\s*;\s*(//.*$)?#m';
             preg_replace($pattern, '', $content);
             $row = $this->rows[$uid];
             $title = $row->title;
@@ -238,31 +247,6 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
         return $this->rootlines[$id];
     }
 
-    protected function getPath($vars)
-    {
-        $replace = array();
-        foreach ($vars as $key => $value) {
-            $replace[] = '${'.$key.'}';
-        }
-        $path = str_replace($replace, $vars, $this->pathMask);
-        if (preg_match('/\$\{([^\}]*)\}/', $path, $res)) {
-            $this->_die('Unknown var "'.$res[1].'" in path mask');
-        }
-        $path = strtolower($path);
-        $path = preg_replace('#[^a-z0-9/-_\.]+#i', ' ', $path);
-        $path = preg_replace('#\s*/+\s*#', '/', $path);
-        $parts = explode(' ', $path);
-        if ($this->renameMode == 'underscore') {
-            $path = implode('_', $parts);
-        } else {
-            $path = array_shift($parts);
-            foreach ($parts as $part) {
-                $path .= ucfirst($part);
-            }
-        }
-        return $path;
-    }
-
     protected function _collect($row)
     {
         $rootline = $this->getRootline($row->pid);
@@ -293,7 +277,7 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
             $count++;
             $vars['type'] = $type;
             $vars['column'] = $column;
-            $path = $this->getPath($vars);
+            $path = $this->getPath($this->pathMask, $vars, $this->renameMode);
             if (in_array($path, $this->templateFiles)) {
                 $msg = 'Path "'.$path.'" already in use for template record '.$this->templateFiles['uid'].' - ';
                 $msg .= 'try renaming one of those records';
