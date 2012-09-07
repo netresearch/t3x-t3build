@@ -16,14 +16,11 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
     protected $extKey = 'template';
 
     /**
-     * Whether to export as static template and add it to the record
-     * or to export as single typoscript files and replace theyr source
-     * with an appropriate INCLUDE_TYPOSCRIPT tag
-     *
+     * The table to operate on (sys_template or pages)
      * @arg
-     * @var boolean
+     * @var string
      */
-    protected $static = true;
+    protected $table = 'sys_template';
 
     /**
      * The mask of the path within the extension the files will be
@@ -35,7 +32,7 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
      *                be empty when page is below rootLineBegin
      * ${pageTitle} - The title of the records parent page
      * ${siteTitle} - The website title when present or ${title}
-     * ${type}      - Type of TypoScript (setup or constants)
+     * ${type}      - Type of TypoScript (setup, config or constants)
      *
      * Add a feature request/patch at forge.typo3.org if you need more
      *
@@ -59,7 +56,7 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
      * @arg
      * @var int
      */
-    protected $rootLineBegin = 2;
+    protected $rootlineBegin = 2;
 
     /**
      * Whether to include typoscript setup
@@ -133,6 +130,24 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
      */
     protected $renameMode = 'camelCase';
 
+    /**
+     * Whether to export as static template and add it to the record
+     * or to export as single typoscript files and replace theyr source
+     * with an appropriate INCLUDE_TYPOSCRIPT tag
+     *
+     * @arg
+     * @var boolean
+     */
+    protected $static = false;
+
+    /**
+     * When in static mode try to find the templates in "basedOn" and
+     * replace them with the static parts
+     * @arg
+     * @var boolean
+     */
+    protected $basedOnToIncludeStaticFile = false;
+
     protected $extensionPath;
 
     /**
@@ -140,9 +155,19 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
      */
     protected $db;
 
-    protected $columns = array(
-        'setup' => 'config',
-        'constants' => 'constants'
+    /**
+     * @var array
+     */
+    protected $columns;
+
+    protected $tableColumns = array(
+        'sys_template' => array(
+            'setup' => 'config',
+            'constants' => 'constants'
+        ),
+        'pages' => array(
+            'config' => 'TSconfig'
+        )
     );
 
     protected $rows = array();
@@ -164,14 +189,20 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
         if (!$this->includeSetup && !$this->includeConstants) {
             $this->_die('Nothing to export');
         }
-        $columns = array();
-        if ($this->includeSetup) {
-            $columns[] = 'config';
+        if (!array_key_exists($this->table, $this->tableColumns)) {
+            $this->_die('Table '.$this->table.' is not configured');
         }
-        if ($this->includeConstants) {
-            $columns[] = 'constants';
+        if (!$this->table != 'sys_template' && $this->staticDirs) {
+            $this->_die('Static is only supported for table sys_template');
         }
-        $where = '(TRIM('.implode(") <> '' OR TRIM(", $columns).") <> '')";
+        $this->columns = $this->tableColumns[$this->table];
+        if (!$this->includeSetup && array_key_exists('setup', $this->columns)) {
+            unset($this->columns['setup']);
+        }
+        if (!$this->includeConstants && array_key_exists('constants', $this->columns)) {
+            unset($this->columns['constants']);
+        }
+        $where = '(TRIM('.implode(") <> '' OR TRIM(", $this->columns).") <> '')";
         if (!$this->includeHidden) {
             $where .= ' AND hidden = 0';
         }
@@ -182,7 +213,7 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
             $where .= ' AND pid='.$this->pid;
         }
         $this->_debug($where);
-        $rows = $this->db->exec_SELECTgetRows('*', 'sys_template', $where);
+        $rows = $this->db->exec_SELECTgetRows('*', $this->table, $where);
         foreach ($rows as $row) {
             $this->_collect((object) $row);
         }
@@ -190,6 +221,9 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
             $this->_export($row);
         }
         if ($this->static) {
+            if ($this->basedOnToIncludeStaticFile) {
+                $this->basedOn2IncludeStaticFile();
+            }
             $this->writeStatics();
         }
     }
@@ -222,26 +256,63 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
         }
     }
 
+    protected function basedOn2IncludeStaticFile()
+    {
+        foreach ($this->rows as $row) {
+            $baseUids = t3lib_div::intExplode(',', $row->basedOn, true);
+            if (!count($baseUids)) {
+                $this->_debug('No basedOn-Template found for template '.$row->uid);
+                continue;
+            }
+            $rest = array();
+            $includeStatics = array();
+            foreach ($baseUids as $uid) {
+                if (!array_key_exists($uid, $this->staticDirs)) {
+                    $rest[] = $uid;
+                    continue;
+                }
+                $includeStatics[$uid] = 'EXT:'.$this->extKey.'/'.$this->staticDirs[$uid];
+            }
+            if (count($includeStatics)) {
+                $file = $this->staticDirs[$row->uid].'/include_static_file.txt';
+                $content = implode(',', $includeStatics);
+                $this->writeFile($file, $content, $row, 'basedOn');
+            }
+            if ($this->updateRecords) {
+                $rest = implode(',', $rest);
+                $this->_debug('Setting basedOn to "'.$rest.'" on template '.$row->uid);
+                $res = $this->db->exec_UPDATEquery($this->table, 'uid='.$row->uid, array('basedOn' => $rest));
+                if (!$res) {
+                    $this->_die('Could not update record '.$row->uid);
+                }
+            }
+        }
+    }
+
     protected function getRootline($id)
     {
         if (array_key_exists($id, $this->rootlines)) {
             return $this->rootlines[$id];
         }
-        $where = 'uid = '.$id;
-        if (!$this->includeHiddenPages) {
-            $where .= ' AND hidden = 0';
-        }
-        if (!$this->includeDeletedPages) {
-            $where .= ' AND deleted = 0';
-        }
-        $page = $this->db->exec_SELECTgetSingleRow('*', 'pages', $where);
-        if (!$page) {
-            $rootline = null;
-        } else {
-            $rootline = $page['pid'] ? $this->getRootline($page['pid']) : array();
-            if (is_array($rootline)) {
-                $rootline[] = $page['title'];
+        if ($id) {
+            $where = 'uid = '.$id;
+            if (!$this->includeHiddenPages) {
+                $where .= ' AND hidden = 0';
             }
+            if (!$this->includeDeletedPages) {
+                $where .= ' AND deleted = 0';
+            }
+            $page = $this->db->exec_SELECTgetSingleRow('*', 'pages', $where);
+            if (!$page) {
+                $rootline = null;
+            } else {
+                $rootline = $this->getRootline($page['pid']);
+                if (is_array($rootline)) {
+                    $rootline[] = $page['title'];
+                }
+            }
+        } else {
+            $rootline = array();
         }
         $this->rootlines[$id] = $rootline;
         return $this->rootlines[$id];
@@ -254,7 +325,7 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
             return;
         }
         $pageTitle = array_pop($rootline);
-        for ($i = 0; $i < $this->rootLineBegin; $i++) {
+        for ($i = 0; $i < $this->rootlineBegin; $i++) {
             array_shift($rootline);
         }
         $rootline = implode('/', $rootline);
@@ -269,12 +340,7 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
             ),
             compact('rootline', 'pageTitle', 'title', 'siteTitle')
         );
-        $count = 0;
         foreach ($this->columns as $type => $column) {
-            if (!strlen(trim($row->$column))) {
-                continue;
-            }
-            $count++;
             $vars['type'] = $type;
             $vars['column'] = $column;
             $path = $this->getPath($this->pathMask, $vars, $this->renameMode);
@@ -286,9 +352,8 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
             $this->templateFiles[$row->uid.'-'.$column] = $path;
             $this->_debug('Collected: '.$row->uid.'.'.$column.' -> '.$path);
         }
-        if ($count) {
-            $this->rows[$row->uid] = $row;
-        }
+
+        $this->rows[$row->uid] = $row;
     }
 
     protected function getContent($row, $column)
@@ -327,7 +392,7 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
         $count = strlen($content);
         $last = 0;
         while ($last < $count) {
-            $match = array_shift($matches[1]);
+            $match = $comments[1] ? array_shift($comments[1]) : null;
             $next = $match ? $match[1] : $count;
             $new .= preg_replace($pattern, $expanded, substr($content, $last, $next - $last));
             $last = $next;
@@ -348,10 +413,13 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
             $update[$column] = '';
             $file = $this->templateFiles[$row->uid.'-'.$column];
             $content = $this->getContent($row, $column);
-            if (!$file || !$content) {
+            if ($file) {
+                $lastFile = $file;
+            }
+            if (!$file || !trim($content)) {
                 continue;
             }
-            $this->writeFile($lastFile = $file, $content, $row, $column);
+            $this->writeFile($file, $content, $row, $column);
             if (!$this->static) {
                 $update[$column] = '<INCLUDE_TYPOSCRIPT: source="FILE:EXT:'.$this->extKey.'/'.$file.'">';
                 $this->_debug('Writing typoscript include to '.$row->uid.'.'.$column);
@@ -375,7 +443,7 @@ class tx_t3build_provider_tr2tf extends tx_t3build_provider_abstract
         }
 
         $this->_debug('Data for record '.$row->uid.': ', $update);
-        if ($this->updateRecords && !$this->db->exec_UPDATEquery('sys_template', 'uid='.$row->uid, $update)) {
+        if ($this->updateRecords && !$this->db->exec_UPDATEquery($this->table, 'uid='.$row->uid, $update)) {
             $this->_die('Could not update record '.$row->uid);
         }
     }

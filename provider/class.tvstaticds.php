@@ -52,6 +52,7 @@ class tx_t3build_provider_tvstaticds extends tx_t3build_provider_abstract
 
     /**
      * If existing files should be overwritten
+     * @arg
      * @var boolean
      */
     protected $overwrite = false;
