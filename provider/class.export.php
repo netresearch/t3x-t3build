@@ -123,7 +123,7 @@ class tx_t3build_provider_export extends tx_t3build_provider_abstract
      * @arg
      * @var string
      */
-    protected $ignoreTables = 'cache_*,static_*,index_*';
+    protected $ignoreTables = 'cache_*,static_*,index_*,*cache';
 
     /**
      * The path to the temporary tar file
