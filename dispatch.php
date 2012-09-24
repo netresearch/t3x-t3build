@@ -48,47 +48,51 @@ class tx_t3build_dispatch extends t3lib_cli {
 	public function dispatch() {
 		$controller = (string)$this->cli_args['_DEFAULT'][1];
 		$action = (string)$this->cli_args['_DEFAULT'][2];
-		$controllers = array();
 		$classPath = t3lib_extMgm::extPath(self::ExtKey).'provider';
+		$extProviders = (array) $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['t3build']['providers'];
 
 		if (isset($this->cli_args['--debug'])) {
 		    restore_exception_handler();
 		    restore_error_handler();
 		}
 
-		if ($controller) {
-			$controllers[] = $controller;
-		} else {
+		if (!$controller) {
 		    $this->cli_echo('No command provided - please specify one of the following commands:'.PHP_EOL, true);
             $directory = new DirectoryIterator($classPath);
             $pattern = '/^class\.([a-zA-Z0-9]+)\.php$/';
+            $providers = array_keys($extProviders);
             foreach ($directory as $file) {
                 /* @var $file SplFileInfo */
                 if ($file->isFile() && preg_match($pattern, $file->getFilename(), $match) && $match[1] != 'abstract') {
-                    echo $match[1].PHP_EOL;
+                    $providers[] = $match[1];
                 }
             }
+            $providers = array_unique($providers);
+            sort($providers);
+            echo implode(PHP_EOL, $providers).PHP_EOL;
             return;
 		}
 
-		$className = sprintf(self::Mask_ClassName, $controller);
-		if (!class_exists($className)) {
-		    $file = $classPath.DIRECTORY_SEPARATOR.sprintf(self::Mask_FileName, $controller);
-		    if (!file_exists($file)) {
-		        die('Invalid command "'.$controller.'"');
-		    }
-			t3lib_div::requireOnce($file);
-		}
 		/* @var $instance tx_t3build_abstractController */
-		$instance = t3lib_div::makeInstance($className);
+		if (array_key_exists($controller, $extProviders)) {
+		    $instance = t3lib_div::getUserObj($extProviders[$controller], '');
+		} else {
+    		$className = sprintf(self::Mask_ClassName, $controller);
+    		if (!class_exists($className)) {
+    		    $file = $classPath.DIRECTORY_SEPARATOR.sprintf(self::Mask_FileName, $controller);
+    		    if (!file_exists($file)) {
+    		        die('Invalid command "'.$controller.'"');
+    		    }
+    			t3lib_div::requireOnce($file);
+    		}
+		    $instance = t3lib_div::makeInstance($className);
+		}
 		if (!$instance instanceof tx_t3build_provider_abstract) {
 		    echo 'Controller '.$controller.' must extend tx_t3build_provider_abstract';
 		    exit;
 		}
 		$instance->init($this->cli_args);
 		$instance->run($action);
-
-		return $result;
 	}
 }
 

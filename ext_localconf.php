@@ -14,3 +14,9 @@ if (TYPO3_MODE == 'BE') {
 }
 
 $TYPO3_CONF_VARS['EXTCONF']['lowlevel']['cleanerModules']['get_missing_files'] = array('EXT:t3build/clmods/class.get_missing_files.php:tx_t3build_get_missing_files');
+
+/**
+ * Use this configuration directive to add your own providers (or override existing ones)
+ * e.g. $TYPO3_CONF_VARS['EXTCONF']['t3build']['providers']['myprovider'] = 'EXT:myext/providers/class.myprovider.php:tx_myext_provider_myprovider';
+ */
+$TYPO3_CONF_VARS['EXTCONF']['t3build']['providers'] = array();
