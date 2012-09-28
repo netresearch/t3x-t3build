@@ -63,8 +63,8 @@ Manual repair suggestions:
 - Soft References: You should investigate each case and edit the content accordingly. A soft reference to a file could be in an HTML image tag (for example <img src="missing_file.jpg" />) and you would have to either remove the whole tag, change the filename or re-create the missing file.
 ');
 
-		$this->cli_help['examples'] = '/.../cli_dispatch.phpsh lowlevel_cleaner missing_files -s -r
-This will show you missing files in the TYPO3 system and only report back if errors were found.';
+		$this->cli_help['examples'] = '/.../cli_dispatch.phpsh lowlevel_cleaner get_missing_files -r --refindex=update --url=www.example.com --AUTOFIX
+Will show you missing files, ask you to autofix and when you enter "Yes" try to download the files from www.example.com.';
 	}
 
 	/* (non-PHPdoc)
@@ -82,7 +82,7 @@ This will show you missing files in the TYPO3 system and only report back if err
 	        } else {
 	            $scheme = strtolower($match[1]);
 	        }
-	        $url = rtrim($url, '/').'/';
+	        $url = rtrim($url, '/');
 	        foreach (array('managedFilesMissing', 'softrefFilesMissing') as $key) {
         	    foreach ($resultArray[$key] as $file => $dbStuff) {
         	        if (!$urlCount) {
@@ -94,7 +94,10 @@ This will show you missing files in the TYPO3 system and only report back if err
     	            if (!file_exists($dir)) {
     	                t3lib_div::mkdir_deep(PATH_site, substr($dir, strlen(PATH_site)));
     	            }
-    	            $fileUrl = $url.$file;
+    	            $fileUrl = $url;
+    	            foreach (explode('/', $file) as $part) {
+    	                $fileUrl .= '/'.urlencode($part);
+    	            }
                     $ch = curl_init();
                     curl_setopt($ch, CURLOPT_HEADER, 0);
                     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
