@@ -346,9 +346,10 @@ abstract class tx_t3build_provider_abstract {
      * @param string $mask
      * @param array $vars
      * @param string $renameMode
+     * @param boolean $absolute
      * @return string
      */
-    protected function getPath($mask, $vars, $renameMode = 'camelCase')
+    protected function getPath($mask, $vars, $renameMode = 'camelCase', $absolute = false)
     {
         $replace = array();
         foreach ($vars as $key => $value) {
@@ -358,6 +359,25 @@ abstract class tx_t3build_provider_abstract {
         if (preg_match('/\$\{([^\}]*)\}/', $path, $res)) {
             $this->_die('Unknown var "'.$res[1].'" in path mask');
         }
+
+        $pre = '';
+        if ($absolute) {
+            $parts = preg_split('#\s*[\\/]+\s*#', $path);
+            $rest = array();
+            while (count($parts)) {
+                $file = implode('/', $parts);
+                if (file_exists($file)) {
+                    if (!count($rest) && is_file($file)) {
+                        return $file;
+                    }
+                    $pre = $file.'/';
+                    $path = implode('/', $rest);
+                    break;
+                }
+                array_unshift($rest, array_pop($parts));
+            }
+        }
+
         $path = strtolower($path);
         $path = str_replace(':', '-', $path);
         $path = preg_replace('#[^A-Za-z0-9/\-_\.]+#', ' ', $path);
@@ -374,6 +394,6 @@ abstract class tx_t3build_provider_abstract {
                 $uc = $ucPart != $part;
             }
         }
-        return $path;
+        return $pre.$path;
     }
 }
