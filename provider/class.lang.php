@@ -217,13 +217,10 @@ class tx_t3build_provider_lang extends tx_t3build_provider_abstract
             $content[] = '	</meta>';
             $content[] = '	<data type="array">';
             foreach ($language as $code => $labels) {
-                $content[] = '		<languageKey index="'.$code.($type == 'cleaned' && array_key_exists($code, $this->languages) ? '_'.strtoupper($this->languages[$code]) : '').'" type="array">';
+                $content[] = '		<languageKey index="'.($type == 'cleaned' && array_key_exists($code, $this->languages) ? $this->languages[$code].'_'.strtoupper($code) : $code).'" type="array">';
                 foreach ($labels as $index => $label) {
                     $cdata = strpos($label, '<') !== false;
-                    if ($type == 'cleaned' && array_key_exists($code, $this->missing) && array_key_exists($index, $this->missing[$code])) {
-                        $label = '<!-- missing -->';
-                    }
-                    $content[] = '    		<label index="'.$index.'">'.($cdata ? '<![CDATA['.$label.']]>' : $label).'</label>';
+                    $content[] = '    		<label index="'.$index.'">'.($cdata ? '<![CDATA['.$label.']]>' : htmlspecialchars($label)).'</label>';
                 }
                 $content[] = '		</languageKey>';
             }
