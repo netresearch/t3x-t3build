@@ -13,7 +13,7 @@ if (!defined ('TYPO3_cliMode')) {
 }
 
 require_once PATH_t3lib . 'class.t3lib_cli.php';
-require_once t3lib_extMgm::extPath('t3build').'provider/class.abstract.php';
+require_once t3lib_extMgm::extPath('t3build').'classes/class.tx_t3build_providerInfo.php';
 
 /**
  * General CLI dispatcher for the t3build extension.
@@ -23,14 +23,18 @@ require_once t3lib_extMgm::extPath('t3build').'provider/class.abstract.php';
  */
 class tx_t3build_dispatch extends t3lib_cli {
 	const ExtKey = 't3build';
-	const Mask_ClassName = 'tx_t3build_provider_%s';
-	const Mask_FileName = 'class.%s.php';
+
+	/**
+	 * @var tx_t3build_providerInfo
+	 */
+	protected $providerInfo;
 
 	/**
 	 * Creates this object.
 	 */
 	public function __construct() {
 		parent::__construct();
+		$this->providerInfo = t3lib_div::makeInstance('tx_t3build_providerInfo');
 		$this->cli_help = array_merge($this->cli_help, array(
 			'name' => 'tx_t3build_dispatch',
 			'synopsis' => self::ExtKey . ' controller action ###OPTIONS###',
@@ -46,51 +50,21 @@ class tx_t3build_dispatch extends t3lib_cli {
 	 * @return void
 	 */
 	public function dispatch() {
-		$controller = (string)$this->cli_args['_DEFAULT'][1];
+		$provider = (string)$this->cli_args['_DEFAULT'][1];
 		$action = (string)$this->cli_args['_DEFAULT'][2];
-		$classPath = t3lib_extMgm::extPath(self::ExtKey).'provider';
-		$extProviders = (array) $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['t3build']['providers'];
 
 		if (isset($this->cli_args['--debug'])) {
 		    restore_exception_handler();
 		    restore_error_handler();
 		}
 
-		if (!$controller) {
+		if (!$provider) {
 		    $this->cli_echo('No command provided - please specify one of the following commands:'.PHP_EOL, true);
-            $directory = new DirectoryIterator($classPath);
-            $pattern = '/^class\.([a-zA-Z0-9]+)\.php$/';
-            $providers = array_keys($extProviders);
-            foreach ($directory as $file) {
-                /* @var $file SplFileInfo */
-                if ($file->isFile() && preg_match($pattern, $file->getFilename(), $match) && $match[1] != 'abstract') {
-                    $providers[] = $match[1];
-                }
-            }
-            $providers = array_unique($providers);
-            sort($providers);
-            echo implode(PHP_EOL, $providers).PHP_EOL;
+            echo implode(PHP_EOL, $this->providerInfo->getProviders()).PHP_EOL;
             return;
 		}
 
-		/* @var $instance tx_t3build_abstractController */
-		if (array_key_exists($controller, $extProviders)) {
-		    $instance = t3lib_div::getUserObj($extProviders[$controller], '');
-		} else {
-    		$className = sprintf(self::Mask_ClassName, $controller);
-    		if (!class_exists($className)) {
-    		    $file = $classPath.DIRECTORY_SEPARATOR.sprintf(self::Mask_FileName, $controller);
-    		    if (!file_exists($file)) {
-    		        die('Invalid command "'.$controller.'"');
-    		    }
-    			t3lib_div::requireOnce($file);
-    		}
-		    $instance = t3lib_div::makeInstance($className);
-		}
-		if (!$instance instanceof tx_t3build_provider_abstract) {
-		    echo 'Controller '.$controller.' must extend tx_t3build_provider_abstract';
-		    exit;
-		}
+		$instance = $this->providerInfo->getProviderInstance($provider);
 		$instance->init($this->cli_args);
 		$instance->run($action);
 	}

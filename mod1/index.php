@@ -27,6 +27,8 @@ $LANG->includeLLFile('EXT:t3build/mod1/locallang.xml');
 	// This checks permissions and exits if the users has no permission for entry.
 $BE_USER->modAccess($MCONF, 1);
 
+require_once t3lib_extMgm::extPath('t3build').'classes/class.tx_t3build_providerInfo.php';
+
 
 /**
  * Module 't3build' for the 't3build' extension.
@@ -42,12 +44,19 @@ class tx_t3build_module extends t3lib_SCbase {
 	protected $pageinfo;
 
 	/**
+	 * @var tx_t3build_providerInfo
+	 */
+	protected $providerInfo;
+
+	/**
 	 * Initializes the Module
 	 *
 	 * @return	void
 	 */
 	public function __construct() {
 		parent::init();
+
+		$this->providerInfo = t3lib_div::makeInstance('tx_t3build_providerInfo');
 
 			// initialize document
 		$this->doc = t3lib_div::makeInstance('template');
@@ -70,7 +79,7 @@ class tx_t3build_module extends t3lib_SCbase {
 		$this->MOD_MENU = array(
 			'function' => array(
 			    'status' => $GLOBALS['LANG']->getLL('status'),
-			    'export' => $GLOBALS['LANG']->getLL('export'),
+			    'providers' => $GLOBALS['LANG']->getLL('providers'),
 			)
 		);
 
@@ -153,11 +162,30 @@ class tx_t3build_module extends t3lib_SCbase {
 	    return str_pad(nl2br($string), intval(ini_get('output_buffering')))."\n";
 	}
 
-	protected function exportAction() {
-	    $post = (array) t3lib_div::_POST();
-	    t3lib_div::requireOnce(t3lib_extMgm::extPath('t3build').'provider/class.export.php');
-	    /* @var $provider tx_t3build_provider_export */
-	    $provider = t3lib_div::makeInstance('tx_t3build_provider_export');
+	protected function providersAction()
+	{
+        if (t3lib_div::_GP('action')) {
+            return call_user_func(array($this, t3lib_div::_GP('action').'Action'));
+        }
+
+        $content .= '<input type="hidden" name="action" value="runProvider"/>';
+        $content .= '<input type="hidden" id="providerInput" name="provider" value="run"/>';
+        $content .= '<dl class="t3-overview-list">';
+		foreach ($this->providerInfo->getProviders() as $provider) {
+		    $instance = $this->providerInfo->getProviderInstance($provider);
+		    $reflection = new ReflectionClass($instance);
+            preg_match_all('/^\s+\* ([^@\/].*)$/m', $reflection->getDocComment(), $lines);
+            $help = nl2br(trim(implode("\n", $lines[1])));
+            $content .= '<dt><a href="#" onclick="$(\'providerInput\').value = \''.$provider.'\'; $$(\'form\')[0].submit();">'.$provider.'</a></dt>';
+			$content .= '<dd style="white-space:pre;">'.htmlspecialchars(trim(implode("\n", $lines[1]))).'</dd>';
+		}
+		$content .= '</dl>';
+		return $content;
+	}
+
+	protected function runProviderAction()
+	{
+	    $provider = $this->providerInfo->getProviderInstance(t3lib_div::_GP('provider'));
 
 	    $provider->init(array());
 
@@ -170,7 +198,7 @@ class tx_t3build_module extends t3lib_SCbase {
     	    }
 	    }
 
-	    if ($post['download'] || $post['save']) {
+	    if ($post['run']) {
 	        // prepare console output in iframe:
 	        t3lib_div::cleanOutputBuffers();
 	        ob_implicit_flush(true);
@@ -199,9 +227,8 @@ class tx_t3build_module extends t3lib_SCbase {
 	    $form .= '
 	    <div class="t3buildButtons">
     	    <input type="submit" name="download" value="Download"/>&nbsp;
-    	    <input type="submit" name="save" value="Export"/>';
-	    if (file_exists($filename))
-    	$form .= '<div class="divider" style="margin-bottom:10px;"></div>
+    	    <input type="submit" name="save" value="Export"/>
+    	    <div class="divider" style="margin-bottom:10px;"></div>
 	    </div>
 	    <div class="t3buildFormContainer">';
 	    $i = 0;
