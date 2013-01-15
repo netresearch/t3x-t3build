@@ -1,16 +1,59 @@
 <?php
-abstract class tx_t3build_provider_abstract {
-
-    private $_help = '';
-
+/**
+ * Base class for providers - which extracts the CLI help
+ * from the docBlocks of the class and the class vars which
+ * have an @arg tag.
+ * 
+ * If you label an argument with @required it will be 
+ * required and checked upfront - if it's missing, the 
+ * execution will stop with an error.
+ * 
+ * If you need wildcard arguments (eg. to pass them to
+ * another provider) you can label them with @mask:
+ * @mask --clean-*
+ * 
+ * The type (@var) of the arguments will be considered and
+ * CLI args will be casted accordingly before execution.
+ * 
+ * When there are setter methods for the arguments
+ * (setArgument) they will be called instead of directly
+ * setting the class vars.
+ *
+ * @package t3build
+ * @author Christian Opitz <co@netzelf.de>
+ */
+abstract class tx_t3build_provider_abstract
+{
+    /**
+     * Missing arguments
+     * @var array
+     */
     private $_missing = array();
 
+    /**
+     * Argument information array
+     * @var array
+     */
     private $_infos = array();
 
+    /**
+     * Required arguments
+     * @var array
+     */
     private $_requireds = array();
 
+    /**
+     * Reflection of $this class
+     * @var ReflectionClass
+     */
     private $_class;
 
+    /**
+     * Override this if you want the default action
+     * to be another than that with the class name
+     * + 'Action' as method name.
+     * @var string
+     */
     protected $defaultActionName;
 
     /**
@@ -27,8 +70,20 @@ abstract class tx_t3build_provider_abstract {
      */
     protected $help = false;
 
+    /**
+     * The raw cli args as passed from TYPO3
+     * @var array
+     */
     protected $cliArgs = array();
 
+	/**
+	 * Initialization: Retrieve the information about
+	 * the arguments and set the corresponding class
+	 * vars accordingly or fail the execution when
+	 * @required arguments are missing.
+	 * 
+	 * @param array $args
+	 */
 	public function init($args)
 	{
 	    $this->cliArgs = $args;
@@ -150,23 +205,13 @@ abstract class tx_t3build_provider_abstract {
             }
         }
 	}
-
-    public function getOptionInfos()
+    
+    /**
+     * Render the help from the argument information
+     * @return string
+     */
+    protected function renderHelp()
     {
-        $infos = array();
-        foreach ($this->_infos as $i => $info) {
-            if ($info['setter'] && method_exists($this, $method = 'g'.substr($info['setter'], 1))) {
-                $info['value'] = $this->{$method}();
-            } else {
-                $info['value'] = $this->{$info['property']};
-            }
-            $infos[$i] = $info;
-        }
-        return $infos;
-    }
-
-	public function helpAction()
-	{
         preg_match_all('/^\s+\* ([^@\/].*)$/m', $this->_class->getDocComment(), $lines);
         $help = implode("\n", $lines[1])."\n\n";
         $help .= 'php '.$_SERVER['PHP_SELF'];
@@ -177,6 +222,7 @@ abstract class tx_t3build_provider_abstract {
         }
 
         $longest = 0;
+        $order = array();
         foreach ($this->_infos as $i => $info) {
             // Help stuff
             preg_match_all('/^\s+\* ([^@\/].*)$/m', $info['comment'], $lines);
@@ -194,11 +240,15 @@ abstract class tx_t3build_provider_abstract {
             if ($length > $longest) {
                 $longest = $length;
             }
+            $order[$i] = $info['switch'];
         }
+        
+        asort($order);
 
         $help .= PHP_EOL.PHP_EOL;
         $pre = str_repeat(' ', $longest+1);
-        foreach ($this->_infos as $i => $info) {
+        foreach (array_keys($order) as $i) {
+            $info = $this->_infos[$i];
             $length = strlen($info['switchDesc']);
             $default = $info['default'];
             if ($default !== '' && $default !== null) {
@@ -215,9 +265,24 @@ abstract class tx_t3build_provider_abstract {
             $help .= implode(PHP_EOL.str_repeat(' ', $longest+3), $info['desc']);
             $help .= PHP_EOL;
         }
-        $this->_echo($help);
+        
+        return $help;
+    }
+
+	/**
+	 * Output help
+	 */
+	public function helpAction()
+	{
+        $this->_echo($this->renderHelp());
 	}
 
+    /**
+     * Run the provider
+     * 
+     * @param string|null $action
+     * @return mixed|void
+     */
     public function run($action = null)
     {
         if ($this->help) {
@@ -255,6 +320,13 @@ abstract class tx_t3build_provider_abstract {
         return call_user_func(array($this, $action.'Action'));
     }
 
+    /**
+     * Echo vsprintfed string
+     * 
+     * @param string $msg (can contain sprintf format)
+     * @param mixed $arg
+     * @param ...
+     */
     protected function _echo($msg)
     {
         $args = func_get_args();
@@ -268,7 +340,14 @@ abstract class tx_t3build_provider_abstract {
         }
         echo vsprintf((string) $msg, $args)."\n";
     }
-
+    
+    /**
+     * Echo vsprintfed string and exit with error
+     * 
+     * @param string $msg (can contain sprintf format)
+     * @param mixed $arg
+     * @param ...
+     */
     protected function _die($msg)
     {
         $args = func_get_args();
@@ -276,6 +355,13 @@ abstract class tx_t3build_provider_abstract {
         exit(1);
     }
 
+    /**
+     * Dump vars only if --debug is on
+     * 
+     * @param string $msg
+     * @param mixed $var
+     * @param ...
+     */
     protected function _debug($msg)
     {
         if (!$this->debug) {
@@ -293,6 +379,7 @@ abstract class tx_t3build_provider_abstract {
 
     /**
      * Write config to extConf
+     * 
      * @param string $extKey
      * @param array $update
      */
