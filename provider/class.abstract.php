@@ -167,6 +167,7 @@ abstract class tx_t3build_provider_abstract
                 continue;
             }
             $realArgs = array($parts[2]);
+            $realValues = array($value);
             $argsCount = 1;
             for ($n = 0; $n < $argsCount; $n++) {
                 $modifier = $parts[1].$realArgs[$n];
@@ -182,13 +183,18 @@ abstract class tx_t3build_provider_abstract
                             }
                         }
                         if ($parts[1] == '-') {
+                            // Args were passed like -dnp 7
+                            // => Last arg is the real value, the others empty
                             $realArgs = str_split('0'.$parts[2]);
                             $argsCount = count($realArgs);
+                            $realValues = array_fill(0, $argsCount - 2, array());
+                            $realValues[$argsCount - 1] = $value;
                             continue;
                         }
                     }
                     $this->_die('Unknown modifier "%s"', $modifier);
                 }
+                $value = $realValues[$n];
                 $i = $modifiers[$modifier];
                 switch ($this->_infos[$i]['type']) {
                     case 'boolean':
@@ -387,7 +393,7 @@ abstract class tx_t3build_provider_abstract
 
 		$line = trim($line);
 		if ($line === '' && $default !== null) {
-		    $this->_echo($default);
+		    $this->_echo('"'.$default.'"');
 		    return $default;
 		}
 		if (is_array($validResults) && !in_array($line, $validResults)) {
