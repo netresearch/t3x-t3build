@@ -3,18 +3,18 @@
  * Base class for providers - which extracts the CLI help
  * from the docBlocks of the class and the class vars which
  * have an @arg tag.
- * 
- * If you label an argument with @required it will be 
- * required and checked upfront - if it's missing, the 
+ *
+ * If you label an argument with @required it will be
+ * required and checked upfront - if it's missing, the
  * execution will stop with an error.
- * 
+ *
  * If you need wildcard arguments (eg. to pass them to
  * another provider) you can label them with @mask:
  * @mask --clean-*
- * 
+ *
  * The type (@var) of the arguments will be considered and
  * CLI args will be casted accordingly before execution.
- * 
+ *
  * When there are setter methods for the arguments
  * (setArgument) they will be called instead of directly
  * setting the class vars.
@@ -71,21 +71,47 @@ abstract class tx_t3build_provider_abstract
     protected $help = false;
 
     /**
+     * Non interactive mode: Exit on required input or
+     * use default when available
+     * @arg
+     * @var boolean
+     */
+    protected $nonInteractive = false;
+
+    /**
+     * Yes to all: Answer all yes/no questions with yes
+     * @arg
+     * @var boolean
+     */
+    protected $yesToAll = false;
+
+    /**
      * The raw cli args as passed from TYPO3
      * @var array
      */
     protected $cliArgs = array();
+
+    /**
+     * The stdIn resource
+     * @var resource
+     */
+    private $stdIn;
 
 	/**
 	 * Initialization: Retrieve the information about
 	 * the arguments and set the corresponding class
 	 * vars accordingly or fail the execution when
 	 * @required arguments are missing.
-	 * 
+	 *
 	 * @param array $args
 	 */
 	public function init($args)
 	{
+	    if (!TYPO3_cliMode) {
+	        $this->_debug('Not in CLI mode - entering non-interactive mode');
+	        $this->nonInteractive = true;
+	    }
+
 	    $this->cliArgs = $args;
         $this->_class = new ReflectionClass($this);
         $masks = array();
@@ -205,7 +231,7 @@ abstract class tx_t3build_provider_abstract
             }
         }
 	}
-    
+
     /**
      * Render the help from the argument information
      * @return string
@@ -242,7 +268,7 @@ abstract class tx_t3build_provider_abstract
             }
             $order[$i] = $info['switch'];
         }
-        
+
         asort($order);
 
         $help .= PHP_EOL.PHP_EOL;
@@ -265,7 +291,7 @@ abstract class tx_t3build_provider_abstract
             $help .= implode(PHP_EOL.str_repeat(' ', $longest+3), $info['desc']);
             $help .= PHP_EOL;
         }
-        
+
         return $help;
     }
 
@@ -279,7 +305,7 @@ abstract class tx_t3build_provider_abstract
 
     /**
      * Run the provider
-     * 
+     *
      * @param string|null $action
      * @return mixed|void
      */
@@ -321,8 +347,95 @@ abstract class tx_t3build_provider_abstract
     }
 
     /**
+     * Optionally ask $question and ask user for an answer
+     * (if in non-interactive mode, it will use the default
+     * value if given or fail otherwise)
+     * When you pass $validResults the user input will be
+     * validated to match one of them (you can allow short
+     * answers by providing non numeric keys in this array)
+     *
+     * @param string|array|null $questionOrValidResults
+     * @param array|null $validResults
+     * @param string|null $default
+     */
+    protected function _input($questionOrValidResults = null, $validResults = null, $default = null)
+    {
+        if (is_array($questionOrValidResults)) {
+            $validResults = $questionOrValidResults;
+            $questionOrValidResults = null;
+        }
+        if ($questionOrValidResults) {
+            if ($default !== null) {
+                $questionOrValidResults .= ' (leave empty for '.$default.')';
+            }
+            $this->_echo($questionOrValidResults);
+        }
+
+        if ($this->nonInteractive) {
+            if ($default !== null) {
+                $this->_echo('Non-interactive mode - answering with "'.$default.'"');
+                return $default;
+            }
+            $this->_die('Non-interactive mode - aborting');
+        } else {
+            if (!$this->stdIn) {
+    			$this->stdIn = fopen('php://stdin', 'r');
+    		}
+    		while (FALSE == ($line = fgets($this->stdIn, 1000))) {
+    		}
+        }
+
+		$line = trim($line);
+		if ($line === '' && $default !== null) {
+		    $this->_echo($default);
+		    return $default;
+		}
+		if (is_array($validResults) && !in_array($line, $validResults)) {
+		    $validResultsTemp = $validResults;
+		    foreach ($validResults as $key => $value) {
+		        if (!is_numeric($key)) {
+		            if ($line == $key) {
+		                return $value;
+		            }
+		            $validResults[$key] .= '/'.$key;
+		        }
+		    }
+		    $last = array_pop($validResults);
+		    $valid = count($validResults) ? implode(', ', $validResults). ' or '.$last : $last;
+		    $this->_echo('Please type '.$valid.': ');
+		    return $this->_input($validResultsTemp, $default);
+		}
+
+		return $line;
+    }
+
+    /**
+     * Optionally ask a $question and ask the user for an answer
+     * (yes/y, no/n) - automatically answer with yes when --yes-to-all
+     * is set
+     *
+     * @param string $question
+     * @param boolean $default
+     * @return boolean
+     */
+    protected function _inputYesNo($question = null, $default = null)
+    {
+        if ($this->yesToAll) {
+            if ($question) {
+                $this->_echo($question);
+            }
+            $this->_echo('yes');
+            return true;
+        }
+        if ($default !== null) {
+            $default = $default ? 'yes' : 'no';
+        }
+        return $this->_input($question, array('y' => 'yes', 'n' => 'no')) == 'yes';
+    }
+
+    /**
      * Echo vsprintfed string
-     * 
+     *
      * @param string $msg (can contain sprintf format)
      * @param mixed $arg
      * @param ...
@@ -340,10 +453,10 @@ abstract class tx_t3build_provider_abstract
         }
         echo vsprintf((string) $msg, $args)."\n";
     }
-    
+
     /**
      * Echo vsprintfed string and exit with error
-     * 
+     *
      * @param string $msg (can contain sprintf format)
      * @param mixed $arg
      * @param ...
@@ -357,7 +470,7 @@ abstract class tx_t3build_provider_abstract
 
     /**
      * Dump vars only if --debug is on
-     * 
+     *
      * @param string $msg
      * @param mixed $var
      * @param ...
@@ -379,7 +492,7 @@ abstract class tx_t3build_provider_abstract
 
     /**
      * Write config to extConf
-     * 
+     *
      * @param string $extKey
      * @param array $update
      */
