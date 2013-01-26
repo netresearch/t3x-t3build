@@ -164,12 +164,17 @@ class tx_t3build_module extends t3lib_SCbase {
 
 	protected function providersAction()
 	{
+	    $action = t3lib_div::_GP('action') ? t3lib_div::_GP('action') : 'configureProvider';
+	    $provider = t3lib_div::_GP('provider') ? t3lib_div::_GP('provider') : '';
+
+        $content = '<input type="hidden" name="action" value="'.$action.'"/>';
+        $content .= '<input type="hidden" id="providerInput" name="provider" value="'.$provider.'"/>';
+
         if (t3lib_div::_GP('action')) {
-            return call_user_func(array($this, t3lib_div::_GP('action').'Action'));
+            $content .= call_user_func(array($this, $action.'Action'));
+            return $content;
         }
 
-        $content .= '<input type="hidden" name="action" value="runProvider"/>';
-        $content .= '<input type="hidden" id="providerInput" name="provider" value="run"/>';
         $content .= '<dl class="t3-overview-list">';
 		foreach ($this->providerInfo->getProviders() as $provider) {
 		    $instance = $this->providerInfo->getProviderInstance($provider);
@@ -183,51 +188,21 @@ class tx_t3build_module extends t3lib_SCbase {
 		return $content;
 	}
 
-	protected function runProviderAction()
+	protected function configureProviderAction()
 	{
-	    $provider = $this->providerInfo->getProviderInstance(t3lib_div::_GP('provider'));
+	    $post = $_POST;
 
-	    $provider->init(array());
-
-	    if ($post['args']) {
-	        // Set unchecked booleans to false:
-    	    foreach ($provider->getOptionInfos() as $info) {
-    	        if (substr($info['type'], 0, 4) == 'bool' && !isset($post['args']['--'.$info['switch']])) {
-    	            $post['args']['--'.$info['switch']] = array('false');
-    	        }
-    	    }
-	    }
+	    $provider = $this->providerInfo->getProviderInstance($post['provider']);
 
 	    if ($post['run']) {
-	        // prepare console output in iframe:
-	        t3lib_div::cleanOutputBuffers();
-	        ob_implicit_flush(true);
-	        ob_start(array($this, 'flush'), 2);
-
-	        // Rewrite the target file to some temp file to redirect to after export
-    	    if ($post['download']) {
-    	        $downloadFile = 'typo3temp/t3build.tar.gz';
-    	        $post['args']['--file'] = array($downloadFile);
-    	    }
-
-	        echo '<body style="color:#fff; background:#000; font:normal 11px Lucida Console, Courier New, serif; white-space:nowrap;">';
-
-	        // Initialize again with the post args and run it
-	        $provider->init($post['args']);
-	        $provider->run();
-
-	        if (isset($downloadFile)) {
-	            echo '<script type="text/javascript"> window.onload = function() { window.location = "../'.$downloadFile.'"; }</script>';
-	        }
-	        echo '</body>';
-	        die();
+	        $this->runProvider($provider, $post['args']);
+	    } else {
+	        $provider->init(array());
 	    }
-
 
 	    $form .= '
 	    <div class="t3buildButtons">
-    	    <input type="submit" name="download" value="Download"/>&nbsp;
-    	    <input type="submit" name="save" value="Export"/>
+    	    <input type="submit" name="run" value="Run"/>&nbsp;
     	    <div class="divider" style="margin-bottom:10px;"></div>
 	    </div>
 	    <div class="t3buildFormContainer">';
@@ -275,7 +250,11 @@ class tx_t3build_module extends t3lib_SCbase {
             }
             $form .= '</dl>';
 	    }
-
+        $form .= '
+        </div>
+	    	<div class="divider" style="margin-bottom:5px;"></div>
+    	    <input type="submit" name="run" value="Run"/>&nbsp;
+    	    <div class="divider" style="margin-bottom:10px;"></div>';
 	    $form .= '<script type="text/javascript">'."
     		$$('form')[0]
     		.writeAttribute('target', 'consoleOutput')
@@ -284,12 +263,36 @@ class tx_t3build_module extends t3lib_SCbase {
     			$('consoleOutputContainer').show();
     		});
 	    </script>".'
-	    <a name="console_output"/>
     	<div id="consoleOutputContainer" style="display:none;">
     		<iframe id="consoleOutput" name="consoleOutput" frameborder="no" src="../'.t3lib_extMgm::siteRelPath('t3build').'mod1/empty.html" width="100%" height="100%"></iframe>
-        </div>';
+        </div>
+	    <a name="console_output"/>';
 
         return $form;
+	}
+
+	protected function runProvider($provider, $args)
+	{
+        // Set unchecked booleans to false:
+	    foreach ($provider->getOptionInfos() as $info) {
+	        if (substr($info['type'], 0, 4) == 'bool' && !isset($args['--'.$info['switch']])) {
+	            $args['--'.$info['switch']] = array('false');
+	        }
+	    }
+
+        // prepare console output in iframe:
+        t3lib_div::cleanOutputBuffers();
+        ob_implicit_flush(true);
+        ob_start(array($this, 'flush'), 2);
+
+        echo '<body style="color:#fff; background:#000; font:normal 11px Lucida Console, Courier New, serif; white-space:nowrap;">';
+
+        // Initialize again with the post args and run it
+        $provider->init($args);
+        $provider->run();
+
+        echo '</body>';
+        die();
 	}
 
 	/**

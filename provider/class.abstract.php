@@ -301,6 +301,25 @@ abstract class tx_t3build_provider_abstract
         return $help;
     }
 
+    /**
+     * Retrieve option infos with current values
+     *
+     * @return array
+     */
+    public function getOptionInfos()
+    {
+        $infos = array();
+        foreach ($this->_infos as $i => $info) {
+            if ($info['setter'] && method_exists($this, $method = 'g'.substr($info['setter'], 1))) {
+                $info['value'] = $this->{$method}();
+            } else {
+                $info['value'] = $this->{$info['property']};
+            }
+            $infos[$i] = $info;
+        }
+        return $infos;
+    }
+
 	/**
 	 * Output help
 	 */
