@@ -19,7 +19,7 @@ require_once t3lib_extMgm::extPath('t3build').'classes/class.tx_t3build_provider
  * General CLI dispatcher for the t3build extension.
  *
  * @package t3build
- * @author Oliver Hader <oliver.hader@aoemedia.de>
+ * @author Christian Opitz <christian.opitz@netresearch.de>
  */
 class tx_t3build_dispatch extends t3lib_cli {
 	const ExtKey = 't3build';
@@ -37,10 +37,10 @@ class tx_t3build_dispatch extends t3lib_cli {
 		$this->providerInfo = t3lib_div::makeInstance('tx_t3build_providerInfo');
 		$this->cli_help = array_merge($this->cli_help, array(
 			'name' => 'tx_t3build_dispatch',
-			'synopsis' => self::ExtKey . ' controller action ###OPTIONS###',
+			'synopsis' => self::ExtKey . ' command [subcommand] ###OPTIONS###',
 			'description' => '',
 			'examples' => 'typo3/cli_dispatch.phpsh ' . self::ExtKey . ' database updateStructure',
-			'author' => '(c) 2010 AOE media GmbH <dev@aoemedia.de>',
+			'author' => '(c) 2013 Netresearch GmbH & Co.KG <typo3@netresearch.de>',
 		));
 	}
 
