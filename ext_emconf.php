@@ -12,10 +12,10 @@
 
 $EM_CONF[$_EXTKEY] = array(
 	'title' => 'TYPO3 Build Tools',
-	'description' => 'Provides several command line tools usefull for continuous integration',
+	'description' => 'Provides several command line tools useful for continuous integration',
 	'category' => 'services',
 	'author' => 'Christian Opitz',
-	'author_email' => 'christian.opitz@netzelf.de',
+	'author_email' => 'christian.opitz@netresearch.de',
 	'shy' => '',
 	'dependencies' => '',
 	'conflicts' => '',
@@ -32,6 +32,7 @@ $EM_CONF[$_EXTKEY] = array(
 	'version' => '0.0.0',
 	'constraints' => array(
 		'depends' => array(
+			'typo3' => '4.5.0-6.2.99',
 		),
 		'conflicts' => array(
 		),

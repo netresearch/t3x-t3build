@@ -14,311 +14,370 @@ t3lib_div::requireOnce(PATH_t3lib . 'class.t3lib_install.php');
  * Provider that handles database actions of the t3build process inside TYPO3.
  *
  * @package t3build
- * @author Oliver Hader <oliver.hader@aoemedia.de>
+ * @author  Oliver Hader <oliver.hader@aoemedia.de>
  *
  */
 class tx_t3build_provider_database extends tx_t3build_provider_abstract {
-	/*
-	 * List of all possible update types:
-	 *	+ add, change, drop, create_table, change_table, drop_table, clear_table
-	 * List of all sensible update types:
-	 *	+ add, change, create_table, change_table
-	 */
-	const UpdateTypes_List = 'add,change,create_table,change_table';
-	const RemoveTypes_list = 'drop,drop_table,clear_table';
+    /*
+     * List of all possible update types:
+     *	+ add, change, create_table, change_table
+     *
+     * @var string
+     */
+    const UpdateTypes_List = 'add,change,create_table,change_table';
 
-	/**
-	 * @var t3lib_install
-	 */
-	protected $install;
+    /**
+     * List of all sensible update types:
+     *	+ drop, drop_table, clear_table
+     *
+     * @var string
+     */
+    const RemoveTypes_list = 'drop,drop_table,clear_table';
 
-	/**
-	 * @var array
-	 */
-	protected $loadedExtensions;
+    /**
+     * @var t3lib_install_Sql
+     */
+    protected $install;
 
-	/**
-	 * @var array
-	 */
-	protected $consideredTypes;
+    /**
+     * @var array
+     */
+    protected $loadedExtensions;
 
-	/**
-	 * Wether to realy execute the commands or only show them
-	 * @arg
-	 * @var boolean
-	 */
-	protected $execute = false;
+    /**
+     * @var array
+     */
+    protected $consideredTypes;
 
-	/**
-	 * Wether to remove columns/tables not found in TCA
-	 * @arg
-	 * @var boolean
-	 */
-	protected $remove = false;
+    /**
+     * Whether to really execute the commands or only show them
+     *
+     * @arg
+     * @var boolean
+     */
+    protected $execute = false;
 
-	/**
-	 * The database to operate on
-	 * @arg
-	 * @var string
-	 */
-	protected $database = null;
+    /**
+     * Whether to remove columns/tables not found in TCA
+     *
+     * @arg
+     * @var boolean
+     */
+    protected $remove = false;
 
-	/**
-	 * Print information about taken actions
-	 * @arg
-	 * @var boolean
-	 */
-	protected $verbose = false;
+    /**
+     * The database to operate on
+     *
+     * @arg
+     * @var string
+     */
+    protected $database = null;
 
-	/**
-	 * Creates this object.
-	 */
-	public function __construct() {
-		$this->install = t3lib_div::makeInstance('t3lib_install');
-		$this->setLoadedExtensions($GLOBALS['TYPO3_LOADED_EXT']);
-		$this->setConsideredTypes($this->getUpdateTypes());
-	}
+    /**
+     * Print information about taken actions
+     *
+     * @arg
+     * @var boolean
+     */
+    protected $verbose = false;
 
-	/**
-	 * Sets information concerning all loaded TYPO3 extensions.
-	 *
-	 * @param array $loadedExtensions
-	 * @return void
-	 */
-	public function setLoadedExtensions(array $loadedExtensions) {
-		$this->loadedExtensions = $loadedExtensions;
-	}
+    /**
+     * Creates this object.
+     */
+    public function __construct()
+    {
+        $this->install = t3lib_div::makeInstance('t3lib_install');
+        $this->setLoadedExtensions($GLOBALS['TYPO3_LOADED_EXT']);
+        $this->setConsideredTypes($this->getUpdateTypes());
+    }
 
-	/**
-	 * Sets the types condirered to be executed (updates and/or removal).
-	 *
-	 * @param array $consideredTypes
-	 * @return void
-	 * @see updateStructureAction()
-	 */
-	public function setConsideredTypes(array $consideredTypes) {
-		$this->consideredTypes = $consideredTypes;
-	}
+    /**
+     * Sets information concerning all loaded TYPO3 extensions.
+     *
+     * @param array $loadedExtensions An array with the loaded extensions
+     *
+     * @return void
+     */
+    public function setLoadedExtensions(array $loadedExtensions)
+    {
+        $this->loadedExtensions = $loadedExtensions;
+    }
 
-	/**
-	 * Adds considered types.
-	 *
-	 * @param array $consideredTypes
-	 * @return void
-	 * @see updateStructureAction()
-	 */
-	public function addConsideredTypes(array $consideredTypes) {
-		$this->consideredTypes = array_unique(
-			array_merge($this->consideredTypes, $consideredTypes)
-		);
-	}
+    /**
+     * Sets the types considered to be executed (updates and/or removal).
+     *
+     * @param array $consideredTypes An array with the considered types
+     *
+     * @return void
+     *
+     * @see updateStructureAction()
+     */
+    public function setConsideredTypes(array $consideredTypes)
+    {
+        $this->consideredTypes = $consideredTypes;
+    }
 
-	/**
-	 * Updates the database structure.
-	 *
-	 * @param array $arguments Optional arguemtns passed to this action
-	 * @return string
-	 */
-	public function updateStructureAction() {
-		$result = $this->executeUpdateStructure();
+    /**
+     * Adds considered types.
+     *
+     * @param array $consideredTypes An array with the considered types
+     *
+     * @return void
+     *
+     * @see updateStructureAction()
+     */
+    public function addConsideredTypes(array $consideredTypes)
+    {
+        $this->consideredTypes = array_unique(
+            array_merge($this->consideredTypes, $consideredTypes)
+        );
+    }
 
-		if ($this->execute) {
-			$result.= ($result ? PHP_EOL : '') . $this->executeUpdateStructure($this->remove);
-		}
+    /**
+     * Updates the database structure.
+     *
+     * @param array $arguments Optional arguemtns passed to this action
+     *
+     * @return void
+     */
+    public function updateStructureAction()
+    {
+        $result = $this->executeUpdateStructure();
 
-		$this->_echo($result);
-	}
+        if ($this->execute) {
+            $result .= ($result ? PHP_EOL : '')
+                . $this->executeUpdateStructure($this->remove);
+        }
 
-	/**
-	 * Executes the database structure updates.
-	 *
-	 * @param array $arguments Optional arguemtns passed to this action
-	 * @param boolean $allowKeyModifications Whether to allow key modifications
-	 * @return string
-	 */
-	protected function executeUpdateStructure($allowKeyModifications = FALSE) {
-		$result = '';
+        $this->_echo($result);
+    }
 
-		$database = ($this->database ? $this->database : TYPO3_db);
+    /**
+     * Executes the database structure updates.
+     *
+     * @param array   $arguments             Optional arguments passed to this action
+     * @param boolean $allowKeyModifications Whether to allow key modifications
+     *
+     * @return string A list with the results for the changes, each in a new line
+     */
+    protected function executeUpdateStructure($allowKeyModifications = FALSE)
+    {
+        $result = '';
 
-		$changes = $this->install->getUpdateSuggestions(
-			$this->getStructureDifferencesForUpdate($database, $allowKeyModifications)
-		);
+        $database = ($this->database ? $this->database : TYPO3_db);
 
-		if ($this->remove) {
-				// Disable the delete prefix, thus tables and fields can be removed directly:
-			$this->install->deletedPrefixKey = '';
-				// Add types considered for removal:
-			$this->addConsideredTypes($this->getRemoveTypes());
-				// Merge update suggestions:
-			$removals = $this->install->getUpdateSuggestions(
-				$this->getStructureDifferencesForRemoval($database, $allowKeyModifications),
-				'remove'
-			);
-			$changes = array_merge($changes, $removals);
-		}
+        $changes = $this->install->getUpdateSuggestions(
+            $this->getStructureDifferencesForUpdate(
+                $database, $allowKeyModifications
+            )
+        );
 
-		if ($this->execute || $this->verbose) {
-			$statements = array();
+        if ($this->remove) {
+            // Disable the delete prefix, thus tables and fields can be removed
+            // directly:
+            $this->install->deletedPrefixKey = '';
+            // Add types considered for removal:
+            $this->addConsideredTypes($this->getRemoveTypes());
+            // Merge update suggestions:
+            $removals = $this->install->getUpdateSuggestions(
+                $this->getStructureDifferencesForRemoval(
+                    $database, $allowKeyModifications
+                ),
+                'remove'
+            );
+            $changes = array_merge($changes, $removals);
+        }
 
-			// Concatenates all statements:
-			foreach ($this->consideredTypes as $consideredType) {
-				if (isset($changes[$consideredType]) && is_array($changes[$consideredType])) {
-					$statements+= $changes[$consideredType];
-				}
-			}
+        if ($this->execute || $this->verbose) {
+            $statements = array();
 
-			if ($this->execute) {
-				foreach ($statements as $statement) {
-					$GLOBALS['TYPO3_DB']->admin_query($statement);
-				}
-			}
+            // Concatenates all statements:
+            foreach ($this->consideredTypes as $consideredType) {
+                if (isset($changes[$consideredType])
+                    && is_array($changes[$consideredType])
+                ) {
+                    $statements+= $changes[$consideredType];
+                }
+            }
 
-			if ($this->verbose) {
-				$result = implode(PHP_EOL, $statements);
-			}
-		}
+            if ($this->execute) {
+                foreach ($statements as $statement) {
+                    $GLOBALS['TYPO3_DB']->admin_query($statement);
+                }
+            }
 
-		return $result;
-	}
+            if ($this->verbose) {
+                $result = implode(PHP_EOL, $statements);
+            }
+        }
 
-	/**
-	 * Removes key modifications that will cause errors.
-	 *
-	 * @param array $differences The differneces to be cleaned up
-	 * @return array The cleaned differences
-	 */
-	protected function removeKeyModifications(array $differences) {
-		$differences = $this->unsetSubKey($differences, 'extra', 'keys', 'whole_table');
-		$differences = $this->unsetSubKey($differences, 'diff', 'keys');
+        return $result;
+    }
 
-		return $differences;
-	}
+    /**
+     * Removes key modifications that will cause errors.
+     *
+     * @param array $differences The differneces to be cleaned up
+     *
+     * @return array The cleaned differences
+     */
+    protected function removeKeyModifications(array $differences)
+    {
+        $differences = $this->unsetSubKey(
+            $differences, 'extra', 'keys', 'whole_table'
+        );
+        $differences = $this->unsetSubKey($differences, 'diff', 'keys');
 
-	/**
-	 * Unsets a subkey in a given differences array.
-	 *
-	 * @param array $differences
-	 * @param string $type e.g. extra or diff
-	 * @param string $subKey e.g. keys or fields
-	 * @param string $exception e.g. whole_table that stops the removal
-	 * @return array
-	 */
-	protected function unsetSubKey(array $differences, $type, $subKey, $exception = '') {
-		if (isset($differences[$type])) {
-			foreach ($differences[$type] as $table => $information) {
-				$isException = ($exception && isset($information[$exception]) && $information[$exception]);
-				if (isset($information[$subKey]) && $isException === FALSE) {
-					unset($differences[$type][$table][$subKey]);
-				}
-			}
-		}
+        return $differences;
+    }
 
-		return $differences;
-	}
+    /**
+     * Unsets a subkey in a given differences array.
+     *
+     * @param array  $differences The differences array from which to remove the
+     *                            subkey
+     * @param string $type        e.g. extra or diff
+     * @param string $subKey      e.g. keys or fields
+     * @param string $exception   e.g. whole_table that stops the removal
+     *
+     * @return array The differences array with the removed subkeys
+     */
+    protected function unsetSubKey(
+        array $differences, $type, $subKey, $exception = ''
+    ) {
+        if (isset($differences[$type])) {
+            foreach ($differences[$type] as $table => $information) {
+                $isException = (
+                    $exception && isset($information[$exception])
+                    && $information[$exception]
+                );
 
-	/**
-	 * Gets the differences in the database structure by comparing
-	 * the current structure with the SQL definitions of all extensions
-	 * and the TYPO3 core in t3lib/stddb/tables.sql.
-	 *
-	 * This method searches for fields/tables to be added/updated.
-	 *
-	 * @param string $database
-	 * @param boolean $allowKeyModifications Whether to allow key modifications
-	 * @return array The database statements to update the structure
-	 */
-	protected function getStructureDifferencesForUpdate($database, $allowKeyModifications = FALSE) {
-		$differences = $this->install->getDatabaseExtra(
-			$this->getDefinedFieldDefinitions(),
-			$this->install->getFieldDefinitions_database($database)
-		);
+                if (isset($information[$subKey]) && $isException === FALSE) {
+                    unset($differences[$type][$table][$subKey]);
+                }
+            }
+        }
 
-		if (!$allowKeyModifications) {
-			$differences = $this->removeKeyModifications($differences);
-		}
+        return $differences;
+    }
 
-		return $differences;
-	}
+    /**
+     * Gets the differences in the database structure by comparing
+     * the current structure with the SQL definitions of all extensions
+     * and the TYPO3 core in t3lib/stddb/tables.sql.
+     *
+     * This method searches for fields/tables to be added/updated.
+     *
+     * @param string  $database              The database name from which to get the
+     *                                       field definitions
+     * @param boolean $allowKeyModifications Whether to allow key modifications,
+     *                                       defaults to false
+     *
+     * @return array The database statements to update the structure
+     */
+    protected function getStructureDifferencesForUpdate(
+        $database, $allowKeyModifications = FALSE
+    ) {
+        $differences = $this->install->getDatabaseExtra(
+            $this->getDefinedFieldDefinitions(),
+            $this->install->getFieldDefinitions_database($database)
+        );
 
-	/**
-	 * Gets the differences in the database structure by comparing
-	 * the current structure with the SQL definitions of all extensions
-	 * and the TYPO3 core in t3lib/stddb/tables.sql.
-	 *
-	 * This method searches for fields/tables to be removed.
-	 *
-	 * @param string $database
-	 * @param boolean $allowKeyModifications Whether to allow key modifications
-	 * @return array The database statements to update the structure
-	 */
-	protected function getStructureDifferencesForRemoval($database, $allowKeyModifications = FALSE) {
-		$differences = $this->install->getDatabaseExtra(
-			$this->install->getFieldDefinitions_database($database),
-			$this->getDefinedFieldDefinitions()
-		);
+        if (!$allowKeyModifications) {
+            $differences = $this->removeKeyModifications($differences);
+        }
 
-		if (!$allowKeyModifications) {
-			$differences = $this->removeKeyModifications($differences);
-		}
+        return $differences;
+    }
 
-		return $differences;
-	}
+    /**
+     * Gets the differences in the database structure by comparing
+     * the current structure with the SQL definitions of all extensions
+     * and the TYPO3 core in t3lib/stddb/tables.sql.
+     *
+     * This method searches for fields/tables to be removed.
+     *
+     * @param string  $database              The database name from which to get the
+     *                                       field definitions
+     * @param boolean $allowKeyModifications Whether to allow key modifications,
+     *                                       defaults to false
+     *
+     * @return array The database statements to update the structure
+     */
+    protected function getStructureDifferencesForRemoval(
+        $database, $allowKeyModifications = FALSE
+    ) {
+        $differences = $this->install->getDatabaseExtra(
+            $this->install->getFieldDefinitions_database($database),
+            $this->getDefinedFieldDefinitions()
+        );
 
-	/**
-	 * Gets the defined field definitions from the ext_tables.sql files.
-	 *
-	 * @return array The accordant definitions
-	 */
-	protected function getDefinedFieldDefinitions() {
-		$content = '';
+        if (!$allowKeyModifications) {
+            $differences = $this->removeKeyModifications($differences);
+        }
 
-		if (method_exists($this->install, 'getFieldDefinitions_fileContent')) {
-			$content = $this->install->getFieldDefinitions_fileContent (
-				implode(chr(10), $this->getAllRawStructureDefinitions())
-			);
-		} else {
-			$content = $this->install->getFieldDefinitions_sqlContent (
-				implode(chr(10), $this->getAllRawStructureDefinitions())
-			);
-		}
+        return $differences;
+    }
 
-		return $content;
-	}
+    /**
+     * Gets the defined field definitions from the ext_tables.sql files.
+     *
+     * @return array The accordant definitions
+     */
+    protected function getDefinedFieldDefinitions()
+    {
+        $content = '';
 
-	/**
-	 * Gets all structure definitions of extensions the TYPO3 Core.
-	 *
-	 * @return array All structure definitions
-	 */
-	protected function getAllRawStructureDefinitions() {
-		$rawDefinitions = array();
-		$rawDefinitions[] = file_get_contents(PATH_t3lib . 'stddb/tables.sql');
+        if (method_exists($this->install, 'getFieldDefinitions_fileContent')) {
+            $content = $this->install->getFieldDefinitions_fileContent (
+                implode(chr(10), $this->getAllRawStructureDefinitions())
+            );
+        } else {
+            $content = $this->install->getFieldDefinitions_sqlContent (
+                implode(chr(10), $this->getAllRawStructureDefinitions())
+            );
+        }
 
-		foreach ($this->loadedExtensions as $extension) {
-			if (is_array($extension) && $extension['ext_tables.sql'])	{
-				$rawDefinitions[] = file_get_contents($extension['ext_tables.sql']);
-			}
-		}
+        return $content;
+    }
 
-		return $rawDefinitions;
-	}
+    /**
+     * Gets all structure definitions of extensions the TYPO3 Core.
+     *
+     * @return array All structure definitions
+     */
+    protected function getAllRawStructureDefinitions()
+    {
+        $rawDefinitions = array();
+        $rawDefinitions[] = file_get_contents(PATH_t3lib . 'stddb/tables.sql');
 
-	/**
-	 * Gets the defined update types.
-	 *
-	 * @return array
-	 */
-	protected function getUpdateTypes() {
-		return t3lib_div::trimExplode(',', self::UpdateTypes_List, TRUE);
-	}
+        foreach ($this->loadedExtensions as $extension) {
+            if (is_array($extension) && $extension['ext_tables.sql'])	{
+                $rawDefinitions[] = file_get_contents($extension['ext_tables.sql']);
+            }
+        }
 
-	/**
-	 * Gets the defined remove types.
-	 *
-	 * @return array
-	 */
-	protected function getRemoveTypes() {
-		return t3lib_div::trimExplode(',', self::RemoveTypes_list, TRUE);
-	}
+        return $rawDefinitions;
+    }
+
+    /**
+     * Gets the defined update types.
+     *
+     * @return array An array containing the defined update types e.g. add
+     */
+    protected function getUpdateTypes()
+    {
+        return t3lib_div::trimExplode(',', self::UpdateTypes_List, TRUE);
+    }
+
+    /**
+     * Gets the defined remove types.
+     *
+     * @return array An array containing the defined remove types e.g. drop
+     */
+    protected function getRemoveTypes()
+    {
+        return t3lib_div::trimExplode(',', self::RemoveTypes_list, TRUE);
+    }
 }
+?>
